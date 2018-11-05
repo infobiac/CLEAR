@@ -1,0 +1,3 @@
+[submodule "python_evm/vyper"]
+	path = python_evm/vyper
+	url = https://github.com/ethereum/vyper.git
