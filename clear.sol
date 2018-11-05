@@ -32,11 +32,11 @@ contract Clear {
         }
     }
     
-    function result() public returns(uint8){
+    function result() constant public returns(uint8){
         return yays >= nays ? 1 : 0;
     }
     
-    function result_arr() public returns(uint8[3]){
+    function result_arr() constant public returns(uint8[3]){
         return [yays, nays, pending];
     }
     
@@ -46,7 +46,7 @@ contract Clear {
         verifiers[verifier] = 2;
     }
     
-    function get_data() public returns(string){
+    function get_data() constant public returns(string){
         return data;
     }
 }
