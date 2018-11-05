@@ -3,15 +3,17 @@ from vython import *
 
 
 class Contract:
-	test = public(int128())
-	toost = public(uint256())
+	foo = public(int128())
+	bar = public(uint256())
 
 	@public
 	def __init__(self, wa: int128):
-		self.test = wa
+		self.foo = wa
 
 	@public
-	def poop(self):
-		self.toost = 5
+	def test(self):
+		self.bar = 5
+
+Contract.tast = public(int128(10))
 
 transpile(Contract)
