@@ -5,6 +5,7 @@ class Safe:
     seller = public(address())
     buyer = public(address())
     unlocked = public(bool())
+    val = public(uint256())
     #@constant
     #def unlocked() -> bool: #Is a refund possible for the seller?
     #    return (self.balance == self.value*2)
@@ -42,4 +43,14 @@ class Safe:
         selfdestruct(self.seller) #Return the seller's deposit (=2*value)
             # and the purchase price (=value) to the seller.
 
+print(transpile(Safe, target="abi"))
 print(transpile(Safe))
+
+
+@public
+def func(toadd:uint256):
+    self.val += toadd
+
+Safe.add = func
+print(deploy(transpile(Safe)))
+

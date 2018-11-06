@@ -3,6 +3,8 @@ import textwrap
 from vyper import compiler, optimizer
 from vyper.parser.parser import parse_to_lll
 from vyper.compile_lll import compile_to_assembly, assembly_to_evm
+from web3 import Web3
+import json
 
 class Block:
 	def __init__(self):
@@ -25,9 +27,12 @@ __vython_const_funcs = []
 class uint256:
 	def __init__(self, val=None):
 		self.initd = True if val else False
-		if val and val >= 0: self.val = val
-		elif not val: pass
-		else: raise TypeError
+		if val and val >= 0: 
+			self.val = val
+		elif not val: 
+			pass
+		else: 
+			raise TypeError
 		self.public = False
 		self.constant = False
 
@@ -115,7 +120,8 @@ def public(thing):
 			b = under_bool()
 			b.public = True
 			return b
-		if thing not in __vython_pub_funcs: __vython_pub_funcs.append(thing)
+		if thing not in __vython_pub_funcs: 
+			__vython_pub_funcs.append(thing)
 	return thing
 
 
@@ -128,7 +134,8 @@ def private(thing):
 			# May need to fix this for initialized vals
 			b = under_bool()
 			return b
-		if thing not in __vython_priv_funcs: __vython_priv_funcs.append(thing)
+		if thing not in __vython_priv_funcs: 
+			__vython_priv_funcs.append(thing)
 	return thing
 
 
@@ -137,7 +144,8 @@ def constant(thing):
 		thing.constant
 		thing.constant = True
 	except AttributeError:
-		if thing not in __vython_const_funcs: __vython_const_funcs.append(thing)
+		if thing not in __vython_const_funcs: 
+			__vython_const_funcs.append(thing)
 
 
 
@@ -155,21 +163,43 @@ def selfdestruct(destructor: address):
 
 ## Transpile shit
 
-class vyper:
+class Vyper:
 	def __init__(self, st):
 		self.str = st
 
 	def __str__(self):
 		return self.str
 
-class bytecode:
+class Bytecode:
 	def __init__(self, st):
 		self.str = st
 
 	def __str__(self):
 		return self.str
 
-class lll:
+class Abi:
+	def __init__(self, dic):
+		self.abi = dic
+
+	def to_json(self):
+		return json.dumps(self.abi)
+
+	def __str__(self):
+		return str(self.abi)
+
+class Deploy:
+	def __init__(self, abi, bytecode):
+		self.abi = abi
+		self.bytecode = bytecode
+
+	def __str__(self):
+		fin = "abi: {}\n".format(str(self.abi))
+		fin = fin + "-"*50 + "\n"
+		fin = "{}bytecode: {}\n".format(fin, self.bytecode)
+		return fin
+
+
+class Lll:
 	def __init__(self, node):
 		self.node = node
 
@@ -202,24 +232,49 @@ def python_to_vyper(clss):
 					fin = "{}\n{}".format(fin, st.replace("self,","").replace("self", ""))
 				else:
 					fin = "{}\n{}".format(fin, st)
-	return vyper(fin)
+	return Vyper(fin)
 
-def transpile(clss, target="bytecode"):
-	if target not in ["bytecode", "lll", "vyper", "vy"]: 
+# deploy = bytecode + abi
+def transpile(clss, target="deploy"):
+	if target not in ["deploy", "abi", "bytecode", "lll", "vyper", "vy"]: 
 		raise ValueError("Unrecognized target for transpilation")
-	if type(clss) is lll:
+	if type(clss) is Lll:
 		#todo: need to rework this
 		if target == "bytecode":
 			asm = compile_to_assembly(clss.node)
 			return '0x' + assembly_to_evm(asm).hex()
 		raise ValueError("lll can only be compiled to bytecode for now")
-	vyp = python_to_vyper(clss)
-	if target == "vyper" or target == "vy": 
-		return vyp
-	if target == "bytecode":
-		return bytecode('0x' + compiler.compile(str(vyp)).hex())
-	return lll(optimizer.optimize(parse_to_lll(str(vyp))))
 
-def deploy(bytecode):
-	if type(bytecode) is not bytecode:
-		raise ValueError("Deploy only works with bytecode!")
+	vyp = python_to_vyper(clss)
+
+	if target == "vyper" or target == "vy":
+		return vyp
+
+	if target == "bytecode":
+		return Bytecode('0x' + compiler.compile(str(vyp)).hex())
+
+	if target == "abi":
+		return Abi(compiler.mk_full_signature(str(vyp)))
+
+	if target == "deploy":
+		abi = Abi(compiler.mk_full_signature(str(vyp)))
+		bytecode = Bytecode('0x' + compiler.compile(str(vyp)).hex())
+		return Deploy(abi, bytecode)
+
+	return Lll(optimizer.optimize(parse_to_lll(str(vyp))))
+
+def deploy(deploy):
+	if type(deploy) is not Deploy:
+		raise ValueError("Deploy only works with Deploy objects!")
+	print("ok")
+
+	#todo: swap this!
+	w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545/"))
+	w3.eth.defaultAccount = w3.eth.accounts[0]
+	ctest = w3.eth.contract(abi=deploy.abi.to_json(), bytecode=str(deploy.bytecode))
+	print(type(ctest))
+	tx_hash = ctest.constructor().transact()
+	tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+	return tx_receipt
+	# print(w3.isConnected())
+

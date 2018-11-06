@@ -1,7 +1,6 @@
 from vython import *
 
 
-
 class Auction:
 	beneficiary = public(address())
 	auctionStart = public(timestamp())
