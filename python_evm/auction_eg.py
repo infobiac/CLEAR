@@ -45,4 +45,5 @@ class Auction:
 
 	    send(self.beneficiary, self.highestBid)
 
-print(transpile(Auction))
+compiled = transpile(Auction)
+print(compiled)

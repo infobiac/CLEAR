@@ -1,5 +1,7 @@
 import inspect
 import textwrap
+from vyper import compiler, optimizer
+from vyper.parser.parser import parse_to_lll
 
 class Block:
 	def __init__(self):
@@ -147,8 +149,18 @@ def send(fr: address, to: address):
 	pass
 
 
-def transpile(cls):
-	# Perform 2 loops: first to collect all static vars, then to collect funcs.
+
+## Transpile shit
+
+class vyper:
+	def __init__(self, st):
+		self.str = st
+
+	def __str__(self):
+		return self.str
+
+def python_to_vyper(cls):
+	# Perform 2 passes: first to collect all static vars, then to collect funcs.
 	fin = ""
 	for x in inspect.getmembers(cls):
 		if not callable(x[1]):
@@ -173,4 +185,15 @@ def transpile(cls):
 					fin = "{}\n{}".format(fin, st.replace("self,","").replace("self", ""))
 				else:
 					fin = "{}\n{}".format(fin, st)
-	return fin
+	return vyper(fin)
+
+def transpile(cls, target="bytecode"):
+	if target not in ["bytecode", "lll", "vyper", "vy"]: 
+		raise ValueError("Unrecognized target for transpilation")
+	vyp = python_to_vyper(cls)
+	if target == "vyper" or target == "vy": return vyp
+
+	if target == "bytecode":
+		return '0x' + compiler.compile(str(vyp)).hex()
+	return optimizer.optimize(parse_to_lll(str(vyp)))
+
