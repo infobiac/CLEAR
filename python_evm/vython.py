@@ -2,6 +2,7 @@ import inspect
 import textwrap
 from vyper import compiler, optimizer
 from vyper.parser.parser import parse_to_lll
+from vyper.compile_lll import compile_to_assembly, assembly_to_evm
 
 class Block:
 	def __init__(self):
@@ -144,10 +145,12 @@ def payable(func):
 	return func
 
 
-
 def send(fr: address, to: address):
 	pass
 
+
+def selfdestruct(destructor: address):
+	pass
 
 
 ## Transpile shit
@@ -159,10 +162,24 @@ class vyper:
 	def __str__(self):
 		return self.str
 
-def python_to_vyper(cls):
+class bytecode:
+	def __init__(self, st):
+		self.str = st
+
+	def __str__(self):
+		return self.str
+
+class lll:
+	def __init__(self, node):
+		self.node = node
+
+	def __str__(self):
+		return str(self.node)
+
+def python_to_vyper(clss):
 	# Perform 2 passes: first to collect all static vars, then to collect funcs.
 	fin = ""
-	for x in inspect.getmembers(cls):
+	for x in inspect.getmembers(clss):
 		if not callable(x[1]):
 			name = type(x[1]).__name__ if type(x[1]).__name__ != "under_bool" else "bool"
 			try:
@@ -173,11 +190,11 @@ def python_to_vyper(cls):
 				if x[1].initd:
 					dec = "{} = {}".format(dec, x[1].val)
 				fin = "{}\n{}".format(fin, dec)
-
 			except AttributeError:
 				pass
+
 	fin = "{}\n\n".format(fin)
-	for x in inspect.getmembers(cls):
+	for x in inspect.getmembers(clss):
 		if callable(x[1]) and (x[0][0:2]!="__" or x[0]=="__init__") and x[0] != "builtins":
 			func = textwrap.dedent(inspect.getsource(x[1]))
 			for st in func.splitlines():
@@ -187,13 +204,22 @@ def python_to_vyper(cls):
 					fin = "{}\n{}".format(fin, st)
 	return vyper(fin)
 
-def transpile(cls, target="bytecode"):
+def transpile(clss, target="bytecode"):
 	if target not in ["bytecode", "lll", "vyper", "vy"]: 
 		raise ValueError("Unrecognized target for transpilation")
-	vyp = python_to_vyper(cls)
-	if target == "vyper" or target == "vy": return vyp
-
+	if type(clss) is lll:
+		#todo: need to rework this
+		if target == "bytecode":
+			asm = compile_to_assembly(clss.node)
+			return '0x' + assembly_to_evm(asm).hex()
+		raise ValueError("lll can only be compiled to bytecode for now")
+	vyp = python_to_vyper(clss)
+	if target == "vyper" or target == "vy": 
+		return vyp
 	if target == "bytecode":
-		return '0x' + compiler.compile(str(vyp)).hex()
-	return optimizer.optimize(parse_to_lll(str(vyp)))
+		return bytecode('0x' + compiler.compile(str(vyp)).hex())
+	return lll(optimizer.optimize(parse_to_lll(str(vyp))))
 
+def deploy(bytecode):
+	if type(bytecode) is not bytecode:
+		raise ValueError("Deploy only works with bytecode!")
