@@ -20,6 +20,6 @@ rlp==1.0.3
 six==1.11.0
 toolz==0.9.0
 urllib3==1.24.1
-vyper==0.1.0b4
+vyper==0.3.0
 web3==4.8.1
 websockets==6.0
